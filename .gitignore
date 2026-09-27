@@ -1,0 +1,24 @@
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.pytest_cache/
+*.db
+*.sqlite
+*.sqlite3
+db/
+.streamlit/secrets.toml
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+# Notes / scratch files
+plan_breakdown.rtf

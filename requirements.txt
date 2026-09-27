@@ -1,0 +1,10 @@
+langchain_chroma==1.1.0
+langchain_community==0.4.2
+langchain_huggingface==1.2.2
+langchain_text_splitters==1.1.2
+langsmith==0.14.0
+pandas==3.0.6
+protobuf==7.36.2
+python-dotenv==1.2.3
+streamlit==1.64.0
+google-genai

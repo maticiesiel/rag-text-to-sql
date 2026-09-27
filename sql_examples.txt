@@ -1,0 +1,414 @@
+Question: Which team scored the least goals in a single season across all your database and how many?
+SQL:
+SELECT Season, Team, SUM(Goals) AS TotalGoals
+FROM (
+    SELECT Season, HomeTeam AS Team, FullTimeHomeGoals AS Goals FROM premier_league
+    UNION ALL
+    SELECT Season, AwayTeam AS Team, FullTimeAwayGoals AS Goals FROM premier_league
+)
+GROUP BY Season, Team
+ORDER BY TotalGoals ASC LIMIT 1;
+===
+Question: Which team scored the most goals in a single season across all your database and how many?
+SQL:
+SELECT Season, Team, SUM(Goals) AS TotalGoals
+FROM (
+    SELECT Season, HomeTeam AS Team, FullTimeHomeGoals AS Goals FROM premier_league
+    UNION ALL
+    SELECT Season, AwayTeam AS Team, FullTimeAwayGoals AS Goals FROM premier_league
+)
+GROUP BY Season, Team
+ORDER BY TotalGoals DESC LIMIT 1;
+===
+Question: What was the best team in the 2012/13 season?
+SQL: 
+SELECT Team, SUM(Points) AS TotalPoints 
+FROM (
+    SELECT HomeTeam AS Team, 
+           CASE WHEN FullTimeResult = 'H' THEN 3 WHEN FullTimeResult = 'D' THEN 1 ELSE 0 END AS Points 
+    FROM premier_league WHERE Season = '2012/13'
+    UNION ALL
+    SELECT AwayTeam AS Team, 
+           CASE WHEN FullTimeResult = 'A' THEN 3 WHEN FullTimeResult = 'D' THEN 1 ELSE 0 END AS Points 
+    FROM premier_league WHERE Season = '2012/13'
+) 
+GROUP BY Team 
+ORDER BY TotalPoints DESC LIMIT 1;
+===
+Question: Which team recorded the least goals conceded at home and away throughout all seasons?
+SQL: 
+SELECT Team, SUM(GoalsConceded) AS TotalConceded 
+FROM (
+    SELECT HomeTeam AS Team, FullTimeAwayGoals AS GoalsConceded FROM premier_league
+    UNION ALL
+    SELECT AwayTeam AS Team, FullTimeHomeGoals AS GoalsConceded FROM premier_league
+) 
+GROUP BY Team 
+HAVING COUNT(*) > 38 -- Filters out teams that only played one season
+ORDER BY TotalConceded ASC LIMIT 1;
+===
+Question: Which team scored the most goals altogether at home and away in the season 2021/22?
+SQL: 
+SELECT Team, SUM(Goals) AS TotalGoals 
+FROM (
+    SELECT HomeTeam AS Team, FullTimeHomeGoals AS Goals FROM premier_league WHERE Season = '2021/22'
+    UNION ALL
+    SELECT AwayTeam AS Team, FullTimeAwayGoals AS Goals FROM premier_league WHERE Season = '2021/22'
+) 
+GROUP BY Team 
+ORDER BY TotalGoals DESC LIMIT 1;
+===
+Question: Which team has the best home record in season 2024/25?
+SQL: 
+SELECT HomeTeam, SUM(CASE WHEN FullTimeResult = 'H' THEN 3 WHEN FullTimeResult = 'D' THEN 1 ELSE 0 END) AS HomePoints 
+FROM premier_league 
+WHERE Season = '2024/25' 
+GROUP BY HomeTeam 
+ORDER BY HomePoints DESC LIMIT 1;
+===
+Question: What is the highest number of points a team has in a single season?
+SQL: 
+SELECT Season, Team, SUM(Points) AS TotalPoints 
+FROM (
+    SELECT Season, HomeTeam AS Team, 
+           CASE WHEN FullTimeResult = 'H' THEN 3 WHEN FullTimeResult = 'D' THEN 1 ELSE 0 END AS Points 
+    FROM premier_league
+    UNION ALL
+    SELECT Season, AwayTeam AS Team, 
+           CASE WHEN FullTimeResult = 'A' THEN 3 WHEN FullTimeResult = 'D' THEN 1 ELSE 0 END AS Points 
+    FROM premier_league
+) 
+GROUP BY Season, Team 
+ORDER BY TotalPoints DESC LIMIT 1;
+===
+Question: Which team conceded the least goals in the 2003/04 season home and away?
+SQL:
+SELECT Team, SUM(GoalsConceded) AS TotalConceded
+FROM (
+SELECT HomeTeam AS Team, FullTimeAwayGoals AS GoalsConceded FROM premier_league WHERE Season = '2003/04'
+UNION ALL
+SELECT AwayTeam AS Team, FullTimeHomeGoals AS GoalsConceded FROM premier_league WHERE Season = '2003/04'
+)
+GROUP BY Team
+ORDER BY TotalConceded ASC LIMIT 1;
+===
+Question: Which team conceded the least goals in the 2004/05 season home and away?
+SQL:
+SELECT Team, SUM(GoalsConceded) AS TotalConceded
+FROM (
+SELECT HomeTeam AS Team, FullTimeAwayGoals AS GoalsConceded FROM premier_league WHERE Season = '2004/05'
+UNION ALL
+SELECT AwayTeam AS Team, FullTimeHomeGoals AS GoalsConceded FROM premier_league WHERE Season = '2004/05'
+)
+GROUP BY Team
+ORDER BY TotalConceded ASC LIMIT 1;
+===
+Question: Which team scored the most goals altogether at home and away in all the seasons?
+SQL:
+SELECT Team, SUM(Goals) AS TotalGoals
+FROM (
+SELECT HomeTeam AS Team, FullTimeHomeGoals AS Goals FROM premier_league
+UNION ALL
+SELECT AwayTeam AS Team, FullTimeAwayGoals AS Goals FROM premier_league
+)
+GROUP BY Team
+ORDER BY TotalGoals DESC LIMIT 1;
+===
+Question: Which team scored the most goals in a single season across all the seasons?
+SQL:
+SELECT Season, Team, SUM(Goals) AS TotalGoals
+FROM (
+SELECT Season, HomeTeam AS Team, FullTimeHomeGoals AS Goals FROM premier_league
+UNION ALL
+SELECT Season, AwayTeam AS Team, FullTimeAwayGoals AS Goals FROM premier_league
+)
+GROUP BY Season, Team
+ORDER BY TotalGoals DESC LIMIT 1;
+===
+Question: Which team have the best away record from all the seasons?
+SQL:
+SELECT AwayTeam AS Team, SUM(CASE WHEN FullTimeResult = 'A' THEN 3 WHEN FullTimeResult = 'D' THEN 1 ELSE 0 END) AS AwayPoints
+FROM premier_league
+GROUP BY AwayTeam
+ORDER BY AwayPoints DESC LIMIT 1;
+===
+Question: What is the number of goals Manchester City scored in home matches in 2019/20?
+SQL:
+SELECT SUM(FullTimeHomeGoals) AS HomeGoals
+FROM premier_league
+WHERE HomeTeam = 'Man City' AND Season = '2019/20';
+===
+Question: What is the number of goals Manchester United scored in all matches together in season 2011?
+SQL:
+SELECT SUM(Goals) AS TotalGoals
+FROM (
+SELECT FullTimeHomeGoals AS Goals FROM premier_league WHERE HomeTeam = 'Man United' AND Season = '2011/12'
+UNION ALL
+SELECT FullTimeAwayGoals AS Goals FROM premier_league WHERE AwayTeam = 'Man United' AND Season = '2011/12'
+);
+===
+Question: What team had the best season in the database?
+SQL:
+SELECT Season, Team, SUM(Points) AS TotalPoints
+FROM (
+SELECT Season, HomeTeam AS Team, CASE WHEN FullTimeResult = 'H' THEN 3 WHEN FullTimeResult = 'D' THEN 1 ELSE 0 END AS Points FROM premier_league
+UNION ALL
+SELECT Season, AwayTeam AS Team, CASE WHEN FullTimeResult = 'A' THEN 3 WHEN FullTimeResult = 'D' THEN 1 ELSE 0 END AS Points FROM premier_league
+)
+GROUP BY Season, Team
+ORDER BY TotalPoints DESC LIMIT 1;
+===
+Question: Which team achieved the most away wins in a single season?
+SQL:
+SELECT Season, AwayTeam AS Team, SUM(CASE WHEN FullTimeResult = 'A' THEN 1 ELSE 0 END) AS AwayWins
+FROM premier_league
+GROUP BY Season, AwayTeam
+ORDER BY AwayWins DESC LIMIT 1;
+===
+Question: Which team had the most draws altogether in a single season?
+SQL:
+SELECT Season, Team, SUM(Draws) AS TotalDraws
+FROM (
+SELECT Season, HomeTeam AS Team, CASE WHEN FullTimeResult = 'D' THEN 1 ELSE 0 END AS Draws FROM premier_league
+UNION ALL
+SELECT Season, AwayTeam AS Team, CASE WHEN FullTimeResult = 'D' THEN 1 ELSE 0 END AS Draws FROM premier_league
+)
+GROUP BY Season, Team
+ORDER BY TotalDraws DESC LIMIT 1;
+===
+Question: Which team has recorded the most home wins across all seasons?
+SQL:
+SELECT HomeTeam AS Team, SUM(CASE WHEN FullTimeResult = 'H' THEN 1 ELSE 0 END) AS HomeWins
+FROM premier_league
+GROUP BY HomeTeam
+ORDER BY HomeWins DESC LIMIT 1;
+===
+Question: Which team scored the fewest home goals in a single season?
+SQL:
+SELECT Season, HomeTeam AS Team, SUM(FullTimeHomeGoals) AS HomeGoals
+FROM premier_league
+GROUP BY Season, HomeTeam
+ORDER BY HomeGoals ASC LIMIT 1;
+===
+Question: Which team suffered the most defeats in a single season?
+SQL:
+SELECT Season, Team, SUM(Losses) AS TotalLosses
+FROM (
+SELECT Season, HomeTeam AS Team, CASE WHEN FullTimeResult = 'A' THEN 1 ELSE 0 END AS Losses FROM premier_league
+UNION ALL
+SELECT Season, AwayTeam AS Team, CASE WHEN FullTimeResult = 'H' THEN 1 ELSE 0 END AS Losses FROM premier_league
+)
+GROUP BY Season, Team
+ORDER BY TotalLosses DESC LIMIT 1;
+===
+Question: Which team had the best goal difference in a single season?
+SQL:
+SELECT Season, Team, SUM(GoalsFor) - SUM(GoalsAgainst) AS GoalDifference
+FROM (
+SELECT Season, HomeTeam AS Team, FullTimeHomeGoals AS GoalsFor, FullTimeAwayGoals AS GoalsAgainst FROM premier_league
+UNION ALL
+SELECT Season, AwayTeam AS Team, FullTimeAwayGoals AS GoalsFor, FullTimeHomeGoals AS GoalsAgainst FROM premier_league
+)
+GROUP BY Season, Team
+ORDER BY GoalDifference DESC LIMIT 1;
+===
+Question: How many matches has Arsenal played across all seasons?
+SQL:
+SELECT COUNT(*) AS TotalMatches
+FROM premier_league
+WHERE HomeTeam = 'Arsenal' OR AwayTeam = 'Arsenal';
+===
+Question: Which team had the worst home record based on points in a single season?
+SQL:
+SELECT Season, HomeTeam AS Team, SUM(CASE WHEN FullTimeResult = 'H' THEN 3 WHEN FullTimeResult = 'D' THEN 1 ELSE 0 END) AS HomePoints
+FROM premier_league
+GROUP BY Season, HomeTeam
+ORDER BY HomePoints ASC LIMIT 1;
+===
+Question: Which team conceded the most goals altogether in a single season?
+SQL:
+SELECT Season, Team, SUM(GoalsConceded) AS TotalGoalsConceded
+FROM (
+SELECT Season, HomeTeam AS Team, FullTimeAwayGoals AS GoalsConceded FROM premier_league
+UNION ALL
+SELECT Season, AwayTeam AS Team, FullTimeHomeGoals AS GoalsConceded FROM premier_league
+)
+GROUP BY Season, Team
+ORDER BY TotalGoalsConceded DESC LIMIT 1;
+===
+Question: How many matches ended in a draw in the 2015/16 season?
+SQL:
+SELECT COUNT(*) AS TotalDraws
+FROM premier_league
+WHERE Season = '2015/16' AND FullTimeResult = 'D';
+===
+Question: Which team went undefeated at home during the 2003/04 season?
+SQL:
+SELECT HomeTeam
+FROM premier_league
+WHERE Season = '2003/04'
+GROUP BY HomeTeam
+HAVING SUM(CASE WHEN FullTimeResult = 'A' THEN 1 ELSE 0 END) = 0;
+===
+Question: What was the average number of total goals per match in the 2022/23 season?
+SQL:
+SELECT AVG(FullTimeHomeGoals + FullTimeAwayGoals) AS AvgGoalsPerGame
+FROM premier_league
+WHERE Season = '2022/23';
+===
+Question: How many goals did Manchester United score at home in 2008/09?
+SQL:
+SELECT SUM(FullTimeHomeGoals) AS HomeGoals
+FROM premier_league
+WHERE HomeTeam LIKE '%Man%Utd%' AND Season = '2008/09';
+===
+Question: What was Arsenal's win percentage in the 2003/04 season?
+SQL:
+SELECT 
+    CAST(SUM(CASE WHEN (HomeTeam = 'Arsenal' AND FullTimeResult = 'H') OR (AwayTeam = 'Arsenal' AND FullTimeResult = 'A') THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 AS WinPercentage
+FROM premier_league
+WHERE Season = '2003/04' AND (HomeTeam = 'Arsenal' OR AwayTeam = 'Arsenal');
+===
+Question: Which team was losing at half-time but came back to win the most times?
+SQL:
+SELECT Team, COUNT(*) as Comebacks
+FROM (
+    SELECT HomeTeam AS Team FROM premier_league WHERE HalfTimeResult = 'A' AND FullTimeResult = 'H'
+    UNION ALL
+    SELECT AwayTeam AS Team FROM premier_league WHERE HalfTimeResult = 'H' AND FullTimeResult = 'A'
+)
+GROUP BY Team
+ORDER BY Comebacks DESC LIMIT 1;
+===
+Question: Which team received the most red cards across all seasons?
+SQL:
+SELECT Team, SUM(RedCards) AS TotalReds
+FROM (
+    SELECT HomeTeam AS Team, HomeRedCards AS RedCards FROM premier_league
+    UNION ALL
+    SELECT AwayTeam AS Team, AwayRedCards AS RedCards FROM premier_league
+)
+GROUP BY Team
+ORDER BY TotalReds DESC LIMIT 1;
+===
+Question: How many yellow cards were given in total during the 2015/16 season?
+SQL:
+SELECT SUM(HomeYellowCards + AwayYellowCards) AS TotalYellowCards
+FROM premier_league
+WHERE Season = '2015/16';
+===
+Question: Which team committed the most fouls in a single season?
+SQL:
+SELECT Season, Team, SUM(Fouls) AS TotalFouls
+FROM (
+    SELECT Season, HomeTeam AS Team, HomeFouls AS Fouls FROM premier_league
+    UNION ALL
+    SELECT Season, AwayTeam AS Team, AwayFouls AS Fouls FROM premier_league
+)
+GROUP BY Season, Team
+ORDER BY TotalFouls DESC LIMIT 1;
+===
+Question: What was the biggest home win margin across all seasons?
+SQL:
+SELECT HomeTeam, AwayTeam, Season, (FullTimeHomeGoals - FullTimeAwayGoals) AS Margin
+FROM premier_league
+ORDER BY Margin DESC LIMIT 1;
+===
+Question: Which match had the most total shots on target?
+SQL:
+SELECT HomeTeam, AwayTeam, Season, (HomeShotsOnTarget + AwayShotsOnTarget) AS TotalShotsOnTarget
+FROM premier_league
+ORDER BY TotalShotsOnTarget DESC LIMIT 1;
+===
+Question: Did Chelsea beat Arsenal away in the 2009/10 season?
+SQL:
+SELECT FullTimeResult, FullTimeHomeGoals, FullTimeAwayGoals
+FROM premier_league
+WHERE Season = '2009/10' AND HomeTeam = 'Arsenal' AND AwayTeam = 'Chelsea';
+===
+Question: Which team had the most clean sheets in a single season?
+SQL:
+SELECT Season, Team, SUM(CleanSheets) AS TotalCleanSheets
+FROM (
+    SELECT Season, HomeTeam AS Team, CASE WHEN FullTimeAwayGoals = 0 THEN 1 ELSE 0 END AS CleanSheets FROM premier_league
+    UNION ALL
+    SELECT Season, AwayTeam AS Team, CASE WHEN FullTimeHomeGoals = 0 THEN 1 ELSE 0 END AS CleanSheets FROM premier_league
+)
+GROUP BY Season, Team
+ORDER BY TotalCleanSheets DESC LIMIT 1;
+===
+Question: Which match had the highest number of goals scored by both teams combined?
+SQL:
+SELECT HomeTeam, AwayTeam, Season, (FullTimeHomeGoals + FullTimeAwayGoals) AS TotalGoals
+FROM premier_league
+ORDER BY TotalGoals DESC LIMIT 1;
+===
+Question: How many matches ended in a 0-0 draw in the 2023/24 season?
+SQL:
+SELECT COUNT(*) AS NilNilDraws
+FROM premier_league
+WHERE Season = '2023/24' AND FullTimeHomeGoals = 0 AND FullTimeAwayGoals = 0;
+===
+Question: Which team scored the most first-half goals in the 2019/20 season?
+SQL:
+SELECT Team, SUM(FirstHalfGoals) AS TotalFirstHalfGoals
+FROM (
+    SELECT HomeTeam AS Team, HalfTimeHomeGoals AS FirstHalfGoals FROM premier_league WHERE Season = '2019/20'
+    UNION ALL
+    SELECT AwayTeam AS Team, HalfTimeAwayGoals AS FirstHalfGoals FROM premier_league WHERE Season = '2019/20'
+)
+GROUP BY Team
+ORDER BY TotalFirstHalfGoals DESC LIMIT 1;
+===
+Question: Which specific match had the most yellow cards given to both teams combined?
+SQL:
+SELECT Season, HomeTeam, AwayTeam, (HomeYellowCards + AwayYellowCards) AS TotalYellows
+FROM premier_league
+ORDER BY TotalYellows DESC LIMIT 1;
+===
+Question: Which team took the most total corners in the 2021/22 season?
+SQL:
+SELECT Team, SUM(Corners) AS TotalCorners
+FROM (
+    SELECT HomeTeam AS Team, HomeCorners AS Corners FROM premier_league WHERE Season = '2021/22'
+    UNION ALL
+    SELECT AwayTeam AS Team, AwayCorners AS Corners FROM premier_league WHERE Season = '2021/22'
+)
+GROUP BY Team
+ORDER BY TotalCorners DESC LIMIT 1;
+===
+Question: What is Liverpool's average number of goals scored per game across all seasons?
+SQL:
+SELECT AVG(Goals) AS AverageGoalsPerGame
+FROM (
+    SELECT FullTimeHomeGoals AS Goals FROM premier_league WHERE HomeTeam = 'Liverpool'
+    UNION ALL
+    SELECT FullTimeAwayGoals AS Goals FROM premier_league WHERE AwayTeam = 'Liverpool'
+);
+===
+Question: Which team conceded the fewest total shots to their opponents in the 2018/19 season?
+SQL:
+SELECT Team, SUM(ShotsConceded) AS TotalShotsConceded
+FROM (
+    SELECT HomeTeam AS Team, AwayShots AS ShotsConceded FROM premier_league WHERE Season = '2018/19'
+    UNION ALL
+    SELECT AwayTeam AS Team, HomeShots AS ShotsConceded FROM premier_league WHERE Season = '2018/19'
+)
+GROUP BY Team
+ORDER BY TotalShotsConceded ASC LIMIT 1;
+===
+Question: Which team suffered the most away defeats in a single season?
+SQL:
+SELECT Season, Team, SUM(AwayDefeats) AS TotalAwayDefeats
+FROM (
+    SELECT Season, AwayTeam AS Team, CASE WHEN FullTimeResult = 'H' THEN 1 ELSE 0 END AS AwayDefeats FROM premier_league
+)
+GROUP BY Season, Team
+ORDER BY TotalAwayDefeats DESC LIMIT 1;
+===
+Question: Which home team took the most shots in a single match without scoring a single goal?
+SQL:
+SELECT HomeTeam, AwayTeam, Season, HomeShots, FullTimeHomeGoals
+FROM premier_league
+WHERE FullTimeHomeGoals = 0
+ORDER BY HomeShots DESC LIMIT 1;
