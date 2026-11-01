@@ -5,15 +5,31 @@ from llm_connection import connect_to_llm
 import sqlite3
 import sys
 import io
+import os
+import psycopg2
+from dotenv import load_dotenv
 from contextlib import redirect_stderr, redirect_stdout
 from langsmith import traceable
+load_dotenv()
 
 def load_schema():
-    raw_schema = ""
-    conn = sqlite3.connect('premier_league.db')
+    raw_schema = []
+    conn = psycopg2.connect(
+        host="localhost",
+        port=5432,
+        dbname="myproject",
+        user="mateuszciesielczyk",
+    )
     try:
         cur = conn.cursor()
-        raw_schema = get_schema(cur)
+        cur.execute("""
+            SELECT column_name, data_type
+            FROM information_schema.columns
+            WHERE table_name = 'premier_league'
+            ORDER BY ordinal_position
+                                    """)
+        raw_schema = cur.fetchall()
+        cur.close()
     except Exception as e:
         print(f"Error occured: {e}")
     finally:
@@ -22,14 +38,11 @@ def load_schema():
     return raw_schema
 
 def clean_schema(schema):
-    final_schema = ("Column exact name and type info : ")
-    for i in schema:
-        final_schema += str(i[1])
-        final_schema += " -> "
-        final_schema += str(i[2])
-        final_schema += " , "
-
+    final_schema = "Column exact name and type info : "
+    for name, data_type in schema:
+        final_schema += f"{name} -> {data_type} , "
     return final_schema
+
 
 @traceable(name="gemini_sql_generation")
 def get_sql_from_ai(user_question,similar_question):    #must return an sql only code that must have only code
@@ -38,11 +51,13 @@ def get_sql_from_ai(user_question,similar_question):    #must return an sql only
     Rules: 
     - Points are calculated as 3 for a Win ('H' or 'A'), 1 for a Draw ('D'), and 0 for a Loss. 
     - Seasons are formatted as YYYY/YY (e.g., 2012/13).
+    - The database is PostgreSQL. Use ILIKE for case-insensitive text matching,
+        EXTRACT(YEAR FROM matchdate) for dates, and cast to numeric before ROUND, e.g. ROUND(AVG(col)::numeric, 2).
     Here are some examples of correct SQL queries for similar questions: 
     {similar_question}
     
     
-    Based on the schema and examples above, write an SQLite query to answer the user's question. 
+    Based on the schema and examples above, write an Postgresql query to answer the user's question. 
     Return ONLY the raw SQL code, nothing more. """
 
     devnull = io.StringIO()
@@ -61,7 +76,13 @@ def clean_ai_response(ai_response):    # a function for cleaning if the ai put a
     return ai_response
 
 def get_data_from_sql(sql_query):            # return raw sql data that was produced from the AI sql code prompt
-    conn = sqlite3.connect('premier_league.db')
+    conn = psycopg2.connect(
+        host="localhost",
+        port=5432,
+        dbname="myproject",
+        user="mateuszciesielczyk",
+    )
+    conn.set_session(readonly=True)
     try:
         cur = conn.cursor()
         cur.execute(sql_query)
@@ -90,7 +111,7 @@ def repair_sql_with_ai(user_question, failed_sql, error_message):
     repair_prompt = f"""You are an expert SQL debugger. 
         The user asked: "{user_question}"
 
-        You previously wrote this SQLite query:
+        You previously wrote this Postgresql query:
         {failed_sql}
 
         But it failed and returned this exact database error:
