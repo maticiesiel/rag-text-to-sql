@@ -21,4 +21,4 @@ Thumbs.db
 *.swp
 *.swo
 # Notes / scratch files
-plan_breakdown.rtf
+plan_breakdown.rtfbackup_*.sql
