@@ -1,21 +1,14 @@
 import os
-import json
 import requests
 from dotenv import load_dotenv
-from datetime import date
-import psycopg2
+from datetime import datetime, timedelta, timezone, date
+SYNC_EVERY_DAYS = 30
+
 from psycopg2.extras import execute_values
 
 from db import get_connection
 
 load_dotenv()
-
-
-
-
-
-
-
 
 
 NAME_MAP = {
@@ -49,24 +42,45 @@ def match_to_row(match):
     return (season, matchdate, hometeam, awayteam, ft_home, ft_away, ft_result,
             ht_home, ht_away, ht_result) + no_stats
 
-'''
-rows = [match_to_row(m) for m in matches]
-conn = get_connection()
-try:
-    with conn.cursor() as cur:
-        execute_values(
-            cur,
-            "INSERT INTO premier_league VALUES %s ON CONFLICT DO NOTHING",
-            rows,
-        )
-    conn.commit()
+def ensure_sync_log():
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("CREATE TABLE IF NOT EXISTS sync_log ( id SERIAL PRIMARY KEY, synced_at TIMESTAMPTZ NOT NULL DEFAULT now(), fetched INTEGER,inserted INTEGER )")
+            conn.commit()
+    finally:
+        conn.close()
 
-    with conn.cursor() as cur:
-        cur.execute("SELECT COUNT(*) FROM premier_league")
-        print("Rows in test table:", cur.fetchone()[0])
-finally:
-    conn.close()
-'''
+def get_last_sync_time():
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT MAX(synced_at) FROM sync_log")
+            last_sync_time = cur.fetchone()[0]
+            return last_sync_time
+    finally:
+        conn.close()
+
+def record_sync(fetched, inserted):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO sync_log (fetched, inserted) VALUES (%s, %s)" ,
+                        (fetched , inserted),
+            )
+            conn.commit()
+    finally:
+        conn.close()
+
+def sync_if_due():
+    ensure_sync_log()
+    last = get_last_sync_time()
+    if last is not None and datetime.now(timezone.utc) - last < timedelta(days=SYNC_EVERY_DAYS):
+        print(f"Match data synced on {last:%Y-%m-%d}, skipping sync")
+        return
+    fetched, inserted = run_sync()
+    record_sync(fetched, inserted)
+    print(f"Sync done: {fetched} fetched, {inserted} new")
 
 def get_last_matchdate():
     conn = get_connection()
@@ -82,10 +96,8 @@ def fetch_all_matches(date_from , date_today):
     url = "https://api.football-data.org/v4/competitions/PL/matches"
     headers = {"X-Auth-Token": os.getenv("FOOTBALL_DATA_API_KEY")}
     params = {"status": "FINISHED", "dateFrom": date_from, "dateTo": date_today}
-    response = requests.get(url, headers=headers, params=params)
-    if response.status_code != 200:
-        print(response.json())
-        return []
+    response = requests.get(url, headers=headers, params=params, timeout=15)
+    response.raise_for_status()
     return response.json()["matches"]
 
 def upsert_rows(rows):
@@ -105,11 +117,11 @@ def upsert_rows(rows):
     finally:
         conn.close()
 
-def main():
+def run_sync():
     last = get_last_matchdate()
     if last is None:
-        print("There are no new matches to insert")
-        return 0
+        print("premier_league is empty, nothing to continue from")
+        return 0 , 0
 
     matches = fetch_all_matches(last.isoformat(), date.today().isoformat())
     print(f"Fetched {len(matches)} matches since {last}")
@@ -117,7 +129,8 @@ def main():
     rows = [match_to_row(m) for m in matches]
     inserted = upsert_rows(rows)
     print(f"Inserted {inserted} new matches, {len(rows) - inserted} already in the database")
+    return (len(matches), inserted)
 
 
 if __name__ == "__main__":
-    main()
+    sync_if_due()

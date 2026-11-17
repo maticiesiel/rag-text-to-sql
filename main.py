@@ -1,7 +1,7 @@
 #final working procedure
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
-
+from sync import sync_if_due
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -23,6 +23,10 @@ query = "Which team conceded the fewest goals overall in the 2003/04 season?"
 
 
 if __name__ == "__main__":
+    try:
+        sync_if_due()
+    except Exception as e:
+        print(f"Could not update match data ({e}). Continuing with existing data.")
     print("Welcome to the AI premier league analyst, ask a question relating premier league seasons 2000/01 to 2024/25. \n")
     print("To leave type quit")
     while True:
