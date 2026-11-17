@@ -1,63 +1,104 @@
 # Rag powered text-to-sql analytics system
 
 This project implements a **Retrieval-Augmented Generation (RAG)** system that enables an LLM 
-to generate precise SQLite queries across Premier League match data from seasons 2000/01 to 2024/25.
+to generate precise PostgreSQL queries from 2000/01 season to the current season, refreshed from a live API.
 ## Overview
-Instead of relying only on LLM ability of 
-SQL the system retrieves using **Dynamic Few-Shot prompting** top 3 similar questions asked by the user and answered 
-with the query, so it has a basis of how to generate a query.
-The system supports TXT documents and demonstrates a complete, modular RAG pipeline suitable for real-world AI applications.
+Instead of relying only on the LLM's own SQL ability, the system uses **dynamic few-shot prompting**:
+it retrieves the 3 most similar example questions (each stored with its correct SQL) from a
+vector store and injects them into the prompt, so the model has a template for the query it writes.
+The examples live in a plain TXT file, and the whole pipeline is modular.
 
 ![Premier League AI Analyst Interface](app-demo.png)
 ## Architecture pipeline 
-The system follow a modular RAG architecture :
+The system follows a modular RAG architecture :
 1. **Data Import and Cleaning** - load and inspect dataset
-2. **SQL data connection** - loaded into sqlite3 and prepared for invoking queries
+2. **SQL data connection** - stored in PostgreSQL and prepared for invoking queries
 3. **Document ingestion** - txt file with different questions is ingested from disk
 4. **Chunking and embeddings** - each chunk converted into vector embeddings
 5. **Storing vectors** - stored in persistent directory with Chroma DB
 6. **Searching relevant chunks** - top 3 chunks discovered with  similarity search and injected into the prompt
-7. **LLM generation** - initial SQL generation guided by dynamically injected few-shot blueprints + execution against sqlite3
+7. **LLM generation** - initial SQL generation guided by dynamically injected few-shot blueprints + execution against PostgreSQL in a read-only session
 8. **Error feedback** - intercepting database exceptions and routing the trace through a secondary repair agent with up to 3 bounded self-correction iterations.
 9. **Final response** - the LLM answers the question using only the data retrieved by the sql database
 10. **User Interface** - an interactive web interface deployed using Streamlit to display conversational query results.
 
+## Data Pipeline & Live Sync
+
+Historical matches (2000/01 onward) are stored in PostgreSQL. New matches are
+pulled from the football-data.org API by `sync.py`:
+
+1. **Extract**: request finished Premier League matches since the newest match
+   already stored (the range deliberately overlaps by one day, so a partial
+   matchday can never be missed).
+2. **Transform**: map API team names to the dataset's naming (`Brighton Hove` →
+   `Brighton`), derive the season label and the result letter, and leave
+   statistics the API doesn't provide (shots, corners, fouls, cards) as NULL.
+3. **Load**: `INSERT ... ON CONFLICT DO NOTHING` against a unique constraint on
+   (season, home team, away team), so the sync is idempotent and safe to re-run.
+
+The sync runs when the app starts, at most once every 30 days. Each run is
+recorded in a `sync_log` table. If the API is unreachable, the error is reported
+and the app continues with the existing data.
+
+AI-generated SQL is executed in a **read-only** session, so a faulty or malicious
+query cannot modify the data.
+
+## Known Limitations
+
+- Seasons 2003/04, 2004/05 and 2024/25 are missing some matches, so season-wide
+  totals (points, goals, wins) for them are understated.
+- Matches added by the live sync have no shots, corners, fouls, cards or half-time
+  values (the free API tier doesn't provide them), so questions on those statistics
+  only cover earlier seasons.
+- Data is refreshed at most every 30 days, and the free API tier is rate-limited.
+- Names of newly promoted clubs may need a manual entry in the team-name mapping.
+
 ##  Technical Stack
-
 - **Programming Language:** Python 3.13
+- **Database:** PostgreSQL (psycopg2)
+- **Data source:** football-data.org API (live sync) + historical CSV
 - **Embedding Model:** all-MiniLM-L6-v2 (Sentence-Transformers)
-- **Vector Store:** ChromaDB 
-- **LLM:** google/gemini-3.1-flash-lite
-- **Environment:** MacOS, CPU-only
+- **Vector Store:** ChromaDB
+- **LLM:** gemini-3.1-flash-lite (Google Gemini API)
+- **Interface:** Streamlit
+- **Observability:** LangSmith
+- **Environment:** macOS, CPU-only
 
 
-##  Setup Instructions
+## Setup Instructions
 
-### Create and activate virtual environment (macOS / Linux)
+### 1. Prerequisites
+- Python 3.13
+- PostgreSQL running locally (e.g. Postgres.app on macOS), with a database:
+  `CREATE DATABASE myproject;`
+- API keys: Gemini, football-data.org (free tier), optionally LangSmith
 
-Create a `.env` file in the root directory:
+### 2. Environment
+```
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 3. Configuration
+Create a `.env` file in the project root:
 ```env
 GEMINI_API_KEY="your_gemini_api_key"
+FOOTBALL_DATA_API_KEY="your_football_data_key"
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=myproject
+DB_USER=your_postgres_user
+DB_PASSWORD=
 LANGCHAIN_API_KEY="your_langsmith_api_key"
 LANGCHAIN_TRACING_V2="true"
 LANGCHAIN_PROJECT="rag_football"
-
-python -m venv .venv
-source .venv/bin/activate
 ```
 
-
-### Installing dependencies
-
+### 4. Run
 ```
-pip install -r requirements.txt
-```
-### How to Run the System
-
-Launch the database and start the interactive UI
-
-```
-python3 database_setup.py
+python3 setup_postgres.py     # creates the table and loads the historical data
+python3 sync.py               # optional: fetch the newest matches
 python3 ingestion_pipeline_sql_examples.py
 streamlit run web_interface.py
 ```
@@ -79,8 +120,8 @@ Full execution telemetry is instrumented using **LangSmith** via `@traceable` de
 - **The Solution:** Injected parameterized `UNION ALL` blueprints into the retrieval index. The model learns to project home and away fixtures into a unified subquery before applying aggregations and `GROUP BY` clauses.
 
 ### 3. Agentic Self-Healing Loop
-- **The Problem:** Complex natural language questions occasionally yield SQL with invalid column names or syntax errors, causing unhandled runtime exceptions (`sqlite3.OperationalError`).
-- **The Solution:** Built a bounded feedback loop ($N=3$). When SQLite raises an exception, the system intercepts the error string, loads the schema, and calls a specialized repair agent (`repair_sql_with_ai`) to rewrite and re-execute the query autonomously before presenting output to the user.
+- **The Problem:** Complex natural language questions occasionally yield SQL with invalid column names or syntax errors, causing unhandled runtime exceptions (`psycopg2.Error`).
+- **The Solution:** Built a bounded feedback loop ($N=3$). When PostgreSQL raises an error, the system intercepts the message, reloads the schema and calls a repair agent (`repair_sql_with_ai`) to rewrite and re-execute the query, up to 3 times.
 
 ## Evaluation & Benchmark Tests
 
